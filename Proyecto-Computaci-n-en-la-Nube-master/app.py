@@ -277,6 +277,7 @@ class GenerarVenta(Resource):
     venta_parser.add_argument('forma_pago', type=str, required=True, help='Método de pago (efectivo, transferencia bancaria, etc.)')
     venta_parser.add_argument('estado', type=str, required=True, help='Estado de la venta (pendiente, completada, cancelada)')
 
+    @api.expect(venta_parser)
     @api.doc(description="Generar una venta")
     def post(self):
         args = self.venta_parser.parse_args()
@@ -299,7 +300,7 @@ class GenerarVenta(Resource):
             comprador_id = None
 
             # El vendedor es el usuario autenticado
-            if user_data['role'] == 'vendedor':
+            if user_data['tipo_usuario'] == 'vendedor':
                 vendedor_id = user_id
             else:
                 return {"error": "El usuario no tiene el rol de vendedor"}, 403
