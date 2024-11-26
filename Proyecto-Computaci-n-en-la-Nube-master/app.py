@@ -276,7 +276,8 @@ class GenerarVenta(Resource):
     venta_parser.add_argument('precio_final', type=float, required=True, help='Precio final de la venta')
     venta_parser.add_argument('forma_pago', type=str, required=True, help='Método de pago (efectivo, transferencia bancaria, etc.)')
     venta_parser.add_argument('estado', type=str, required=True, help='Estado de la venta (pendiente, completada, cancelada)')
-
+    venta_parser.add_argument('nombre_comprador', type=str, required=True, help='Nombre del comprador')  # Nombre del comprador
+    
     @api.expect(venta_parser)
     @api.doc(description="Generar una venta")
     def post(self):
@@ -295,20 +296,20 @@ class GenerarVenta(Resource):
             if not user_data:
                 return {"error": "Usuario no encontrado en la base de datos"}, 404
 
-            # Asignar los roles
-            vendedor_id = None
-            comprador_id = None
-
-            # El vendedor es el usuario autenticado
-            if user_data['tipo_usuario'] == 'vendedor':
-                vendedor_id = user_id
-            else:
+             # Verificar que el usuario autenticado sea un vendedor
+            if user_data['tipo_usuario'] != 'vendedor':
                 return {"error": "El usuario no tiene el rol de vendedor"}, 403
 
-            # El comprador_id debe ser proporcionado en la solicitud
-            comprador_id = request.json.get('comprador_id')
-            if not comprador_id:
-                return {"error": "Se debe proporcionar el comprador_id"}, 400
+            vendedor_id = user_id  # El vendedor es el usuario autenticado
+
+            nombre_comprador = args['nombre_comprador']
+            comprador_ref = db.collection('user').where('nombre_completo', '==', nombre_comprador).where('tipo_usuario', '==', 'comprador').limit(1).get()
+            
+            if not comprador_ref:
+                return {"error": "No se encontró un comprador disponible"}, 404
+
+            # Asignar el comprador_id desde el primer usuario con rol 'comprador'
+            comprador_id = comprador_ref[0].id  # Aquí usamos el ID del primer comprador encontrado
 
             # Obtener la fecha de la venta (si no se proporciona, se usa la fecha actual)
             fecha_venta = args.get('fecha_venta', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
