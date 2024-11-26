@@ -41,7 +41,8 @@ bien_raiz_model = api.model('BienRaiz', {
     'descripcion': fields.String(required=True, description='Descripción del bien raíz'),  # Nueva descripción
     'habitaciones': fields.Integer(required=True, description='Cantidad de habitaciones'),  # Nueva propiedad
     'banos': fields.Integer(required=True, description='Cantidad de baños'),  # Nueva propiedad
-    'imagen_url': fields.String(required=False, description='URL de la imagen del bien raíz')  # Campo existente
+    'imagen_url': fields.String(required=False, description='URL de la imagen del bien raíz'),  # Campo existente
+    'vendedor_id': fields.String(required=True, description='ID del vendedor')
 })
 
 venta_model = api.model('Venta', {
@@ -209,26 +210,48 @@ class BienesRaices(Resource):
 
         except Exception as e:
             return {"error": str(e)}, 500
-        
-@api.route('/bienes_raices/<id>')
+@api.route('/bienes_raices/string<string:id>')
 class BienRaizDetail(Resource):
     @api.expect(bien_raiz_model)
-    @api.doc(description="Actualizar un bien raíz por ID")
+    @api.doc(description="Actualizar el ID del vendedor de un bien raíz por ID")
     def put(self, id):
-        data = request.json
-        doc_ref = db.collection('bienes_raices').document(id)
-        doc_ref.update({
-            'nombre': data.get('nombre'),
-            'precio': data.get('precio'),
-            'ubicacion': data.get('ubicacion')
-        })
-        return {"message": "Bien raíz actualizado"}, 200
+        # Parse the incoming request as JSON
+        data = request.get_json()  # Using `get_json()` to ensure the request is parsed as JSON
+
+        # Check if the vendedor_id is provided in the JSON body
+        nuevo_vendedor_id = data.get('vendedor_id')
+        if not nuevo_vendedor_id:
+            return {"error": "Se debe proporcionar un nuevo ID de vendedor"}, 400
+
+        try:
+            # Reference to the bien raíz document
+            doc_ref = db.collection('bienes_raices').document(id)
+            
+            # Check if the bien raíz exists
+            bien_raiz = doc_ref.get()
+            if not bien_raiz.exists:
+                return {"error": "Bien raíz no encontrado"}, 404
+            
+            # Update the 'vendedor_id' field
+            doc_ref.update({
+                'vendedor_id': nuevo_vendedor_id
+            })
+            
+            return {"message": "ID de vendedor actualizado exitosamente"}, 200
+        
+        except Exception as e:
+            return {"error": str(e)}, 500
     
+    # Método DELETE para eliminar un bien raíz
     @api.doc(description="Eliminar un bien raíz por ID")
     def delete(self, id):
-        db.collection('bienes_raices').document(id).delete()
-        return {"message": "Bien raíz eliminado"}, 200
-
+        try:
+            # Eliminar el bien raíz de Firestore
+            db.collection('bienes_raices').document(id).delete()
+            return {"message": "Bien raíz eliminado exitosamente"}, 200
+        except Exception as e:
+            return {"error": str(e)}, 500
+        
 @api.route('/subir_boleta')
 class Boletas(Resource):
     @api.expect(subir_boleta_model)
