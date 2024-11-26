@@ -272,66 +272,63 @@ class DescargarBoleta(Resource):
 class GenerarVenta(Resource):
     venta_parser = api.parser()
     venta_parser.add_argument('bien_raiz_id', type=str, required=True, help='ID del bien raíz vendido')
-    venta_parser.add_argument('comprador_id', type=str, required=True, help='ID del comprador')
-    venta_parser.add_argument('vendedor_id', type=str, required=True, help='ID del vendedor')
     venta_parser.add_argument('fecha_venta', type=str, help='Fecha de la venta')
-    venta_parser.add_argument('precio_final', type=float, required=True, help='Precio de venta')
-    venta_parser.add_argument('estado', type=str, required=True, choices=('pendiente', 'completada', 'cancelada'), help='Estado de la venta (ej. "pendiente", "completada", "cancelada")')
-    venta_parser.add_argument('forma_pago', type=str, required=True, choices=('efectivo', 'transferencia bancaria', 'financiamiento'), help='Método de pago (ej. "efectivo", "transferencia bancaria", "financiamiento")')
-    venta_parser.add_argument('notas', type=str, help='Notas adicionales sobre la venta')
+    venta_parser.add_argument('precio_final', type=float, required=True, help='Precio final de la venta')
+    venta_parser.add_argument('forma_pago', type=str, required=True, help='Método de pago (efectivo, transferencia bancaria, etc.)')
+    venta_parser.add_argument('estado', type=str, required=True, help='Estado de la venta (pendiente, completada, cancelada)')
 
-    @api.expect(venta_parser)
-    @api.doc(description="Generar una nueva venta de un bien raíz")
+    @api.doc(description="Generar una venta")
     def post(self):
-        # Obtener los datos de la venta desde el parser
         args = self.venta_parser.parse_args()
-        bien_raiz_id = args['bien_raiz_id']
-        comprador_id = args['comprador_id']
-        vendedor_id = args['vendedor_id']
-        precio_final = args['precio_final']
-        estado = args['estado']
-        forma_pago = args['forma_pago']
-        notas = args.get('notas')
-        fecha_venta = args.get('fecha_venta', datetime.now().isoformat())  # Usar la fecha actual si no se proporciona
 
-        # Verificar que el bien raíz, comprador y vendedor existen en Firestore
-        bien_raiz_ref = db.collection('bienes_raices').document(bien_raiz_id)
-        comprador_ref = db.collection('user').document(comprador_id)
-        vendedor_ref = db.collection('user').document(vendedor_id)
-
+        # Obtener el user_id desde la sesión (esto debe ser parte de tu sistema de autenticación)
+        user_id = session.get('user_id')
+        if not user_id:
+            return {"error": "No se encontró un usuario autenticado"}, 401
+        
         try:
-            # Comprobar si existen los documentos
-            if not bien_raiz_ref.get().exists:
-                return {"error": "El bien raíz especificado no existe"}, 404
-            if not comprador_ref.get().exists:
-                return {"error": "El comprador especificado no existe"}, 404
-            if not vendedor_ref.get().exists:
-                return {"error": "El vendedor especificado no existe"}, 404
+            # Obtener los datos del usuario desde Firestore para determinar su rol
+            user_ref = db.collection('user').document(user_id)
+            user_data = user_ref.get().to_dict()
 
-            # Registrar la venta en la colección de ventas
-            venta_data = {
-                'bien_raiz_id': bien_raiz_id,
-                'comprador_id': comprador_id,
-                'vendedor_id': vendedor_id,
-                'precio_final': precio_final,
-                'estado': estado,
-                'forma_pago': forma_pago,
-                'notas': notas,
-                'fecha_venta': fecha_venta,
-                'fecha_creacion': datetime.now().isoformat(),  # Marca la fecha de creación
-                'fecha_actualizacion': datetime.now().isoformat()  # Marca la fecha de actualización
-            }
+            if not user_data:
+                return {"error": "Usuario no encontrado en la base de datos"}, 404
+
+            # Asignar los roles
+            vendedor_id = None
+            comprador_id = None
+
+            # El vendedor es el usuario autenticado
+            if user_data['role'] == 'vendedor':
+                vendedor_id = user_id
+            else:
+                return {"error": "El usuario no tiene el rol de vendedor"}, 403
+
+            # El comprador_id debe ser proporcionado en la solicitud
+            comprador_id = request.json.get('comprador_id')
+            if not comprador_id:
+                return {"error": "Se debe proporcionar el comprador_id"}, 400
+
+            # Obtener la fecha de la venta (si no se proporciona, se usa la fecha actual)
+            fecha_venta = args.get('fecha_venta', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
             # Registrar la venta en Firestore
-            venta_ref = db.collection('ventas').add(venta_data)  # Aquí se añade el documento
+            venta_ref = db.collection('ventas').add({
+                'bien_raiz_id': args['bien_raiz_id'],
+                'comprador_id': comprador_id,
+                'vendedor_id': vendedor_id,
+                'fecha_venta': fecha_venta,
+                'precio_final': args['precio_final'],
+                'forma_pago': args['forma_pago'],
+                'estado': args['estado'],
+                'notas': request.json.get('notas', '')  # Opcional
+            })
 
-            # Obtener el ID de la venta creada
-            venta_id = venta_ref.id  # Ahora esto debería funcionar correctamente
-
-            return {"message": "Venta registrada exitosamente", "venta_id": venta_id}, 201
+            return {"message": "Venta registrada exitosamente", "venta_id": venta_ref.id}, 201
 
         except Exception as e:
-            return {"error": f"Ocurrió un error al registrar la venta: {str(e)}"}, 500
+            return {"error": str(e)}, 500
+        
 @api.route('/bienes_raices/<string:id>')
 class BienRaizDetail(Resource):
     @api.doc(description="Obtener los detalles de un bien raíz por ID")
