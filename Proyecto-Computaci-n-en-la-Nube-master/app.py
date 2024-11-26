@@ -149,6 +149,7 @@ class BienesRaices(Resource):
             bienes_raices.append({
                 'id': bien['id'],
                 'user_id': bien.get('user_id'),
+                'vendedor_id': bien.get('vendedor_id', 'No asignado'),
                 'nombre': bien.get('nombre', 'No disponible'),
                 'precio': bien.get('precio', 0),
                 'ubicacion': bien.get('ubicacion', 'No disponible'),
@@ -169,8 +170,8 @@ class BienesRaices(Resource):
             return {"error": "No se proporcionó ninguna imagen"}, 400
 
 
-        user_id = session.get('user_id')
-        if not user_id:
+        vendedor_id = session.get('user_id')
+        if not vendedor_id:
             return{"error": "No se encontró un usuario autenticado"}, 401
 
         try:
@@ -199,12 +200,12 @@ class BienesRaices(Resource):
                 'habitaciones': args['habitaciones'],
                 'banos': args['banos'],
                 'imagen_url': imagen_url,  # Guardar la URL pública
-                'user_id': user_id
+                'vendedor_id': vendedor_id
             })
 
             bien_id = doc_ref.id  # Obtener el ID del documento creado
 
-            return {"message": "Bien raíz agregado", "id": bien_id,"user_id": user_id,"imagen_url": imagen_url}, 201
+            return {"message": "Bien raíz agregado", "id": bien_id,"vendedor_id": vendedor_id,"imagen_url": imagen_url}, 201
 
         except Exception as e:
             return {"error": str(e)}, 500
