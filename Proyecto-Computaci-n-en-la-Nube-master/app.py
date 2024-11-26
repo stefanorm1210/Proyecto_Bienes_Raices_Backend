@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, make_response,session
+from flask import Flask, request, jsonify, session
 from flask_restx import Api, Resource, fields
 from flask_cors import CORS  # Importa CORS
 import firebase_admin
@@ -12,6 +12,7 @@ import logging
 app = Flask(__name__)
 app.secret_key = '121003'
 
+
 # Configurar CORS
 CORS(app, resources={r"/*": {"origins": "http://localhost:5173", "supports_credentials": True}})
 
@@ -19,7 +20,6 @@ CORS(app, resources={r"/*": {"origins": "http://localhost:5173", "supports_crede
 api = Api(app, version='1.0', title='Bienes Raices API', 
           description='API para gestionar bienes raíces, usuarios y boletas', 
           doc='/swagger/') #Ruta para la documentación de Swagger
-api.namespace(auth)
 #Inicializar Firebase
 
 cred = credentials.Certificate('Proyecto-Computaci-n-en-la-Nube-master/config/bienesraicesapp-2082b-firebase-adminsdk-ouekj-b5ece7fcfb.json')
@@ -62,6 +62,13 @@ boleta_model = api.model('Boleta', {
 subir_boleta_model = api.parser()
 subir_boleta_model.add_argument('boleta', location='files', type='file', required=True, help='Archivo de la boleta a subir')
 # Recursos de la API
+@app.before_request
+def make_session_permanet():
+    session.permanent = True
+    app.config.update(
+    SESSION_COOKIE_SAMESITE='None',  # Asegurarse de que SameSite esté en None
+    SESSION_COOKIE_SECURE=False,  # Durante desarrollo, se puede dejar en False si no usas HTTPS
+)
 @api.route('/login')
 class Login(Resource):
     @api.doc(description="Iniciar sesión con email y contraseña")
@@ -84,18 +91,12 @@ class Login(Resource):
                 nombre_completo = user_info.get('nombre_completo')
                 tipo_usuario = user_info.get('tipo_usuario')
                 password = user_info.get('password')
-                 # Establecer una cookie de sesión para el token (si es necesario)
-                response = make_response({
-                    "message": "Inicio de sesión exitoso",
-                    "id": user.uid,
-                    "email": email,
-                    "nombre_completo": nombre_completo,
-                    "tipo_usuario": tipo_usuario,
-                })
-                
-                # Configurar la cookie para mantener la sesión
-                response.set_cookie('session_token', 'valor_del_token', httponly=True, samesite='None', secure=True)
-                return response, 201  
+                return{"message": "Inicio de sesion exitoso", 
+                       "id": user.uid,
+                       "email": email,
+                       "nombre_completo":nombre_completo ,
+                       "tipo_usuario":tipo_usuario, 
+                       "password":password}, 201
             else:
                 return {"error": "El usuario no tiene datos adicionales"}, 404
         except Exception as e:
