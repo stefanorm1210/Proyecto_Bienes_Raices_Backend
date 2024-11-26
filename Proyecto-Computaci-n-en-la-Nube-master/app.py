@@ -319,6 +319,24 @@ class GenerarVenta(Resource):
 
         except Exception as e:
             return {"error": f"Ocurrió un error al registrar la venta: {str(e)}"}, 500
+@api.route('/bienes_raices/<string:id>')
+class BienRaizDetail(Resource):
+    @api.doc(description="Obtener los detalles de un bien raíz por ID")
+    def get(self, id):
+        try:
+            # Buscar el documento en la colección `bienes_raices` por el ID
+            doc_ref = db.collection('bienes_raices').document(id)
+            doc = doc_ref.get()
+
+            # Verificar si el documento existe
+            if doc.exists:
+                bien_raiz = doc.to_dict()
+                bien_raiz['id'] = doc.id  # Añadir el ID al resultado
+                return {"message": "Bien raíz encontrado", "data": bien_raiz}, 200
+            else:
+                return {"error": f"No se encontró ningún bien raíz con ID: {id}"}, 404
+        except Exception as e:
+            return {"error": f"Error al obtener el bien raíz: {str(e)}"}, 500
 
 if __name__ == '__main__':
     app.run(debug=True)
