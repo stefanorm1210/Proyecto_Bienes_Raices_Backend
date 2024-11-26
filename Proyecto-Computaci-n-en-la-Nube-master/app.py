@@ -12,7 +12,6 @@ import logging
 app = Flask(__name__)
 app.secret_key = '121003'
 
-
 # Configurar CORS
 CORS(app, resources={r"/*": {"origins": "http://localhost:5173", "supports_credentials": True}})
 
