@@ -83,7 +83,12 @@ class Login(Resource):
                 nombre_completo = user_info.get('nombre_completo')
                 tipo_usuario = user_info.get('tipo_usuario')
                 password = user_info.get('password')
-                return{"message": "Inicio de sesion exitoso", "email": email,"nombre_completo":nombre_completo ,"tipo_usuario":tipo_usuario, "password":password}, 201
+                return{"message": "Inicio de sesion exitoso", 
+                       "id": user.uid,
+                       "email": email,
+                       "nombre_completo":nombre_completo ,
+                       "tipo_usuario":tipo_usuario, 
+                       "password":password}, 201
             else:
                 return {"error": "El usuario no tiene datos adicionales"}, 404
         except Exception as e:
@@ -143,6 +148,7 @@ class BienesRaices(Resource):
             bien['id'] = doc.id  # Obtiene el ID de Firestore
             bienes_raices.append({
                 'id': bien['id'],
+                'user_id': bien.get('user_id'),
                 'nombre': bien.get('nombre', 'No disponible'),
                 'precio': bien.get('precio', 0),
                 'ubicacion': bien.get('ubicacion', 'No disponible'),
@@ -161,6 +167,11 @@ class BienesRaices(Resource):
 
         if imagen is None:
             return {"error": "No se proporcionó ninguna imagen"}, 400
+
+
+        user_id = session.get('user_id')
+        if not user_id:
+            return{"error": "No se encontró un usuario autenticado"}, 401
 
         try:
             # Obtener el nombre del archivo de imagen
@@ -187,12 +198,13 @@ class BienesRaices(Resource):
                 'descripcion': args['descripcion'],
                 'habitaciones': args['habitaciones'],
                 'banos': args['banos'],
-                'imagen_url': imagen_url  # Guardar la URL pública
+                'imagen_url': imagen_url,  # Guardar la URL pública
+                'user_id': user_id
             })
 
             bien_id = doc_ref.id  # Obtener el ID del documento creado
 
-            return {"message": "Bien raíz agregado", "id": bien_id, "imagen_url": imagen_url}, 201
+            return {"message": "Bien raíz agregado", "id": bien_id,"user_id": user_id,"imagen_url": imagen_url}, 201
 
         except Exception as e:
             return {"error": str(e)}, 500
