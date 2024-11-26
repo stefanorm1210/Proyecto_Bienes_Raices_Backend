@@ -305,7 +305,7 @@ class GenerarVenta(Resource):
             nombre_comprador = args['nombre_comprador']
             comprador_ref = db.collection('user').where('nombre_completo', '==', nombre_comprador).where('tipo_usuario', '==', 'comprador').limit(1).get()
             
-            if not comprador_ref:
+            if len(comprador_ref) == 0:
                 return {"error": "No se encontró un comprador disponible"}, 404
 
             # Asignar el comprador_id desde el primer usuario con rol 'comprador'
@@ -323,7 +323,6 @@ class GenerarVenta(Resource):
                 'precio_final': args['precio_final'],
                 'forma_pago': args['forma_pago'],
                 'estado': args['estado'],
-                'notas': request.json.get('notas', '')  # Opcional
             })
 
             return {"message": "Venta registrada exitosamente", "venta_id": venta_ref.id}, 201
