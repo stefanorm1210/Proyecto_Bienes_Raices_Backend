@@ -319,12 +319,23 @@ class GenerarVenta(Resource):
             if not user_data:
                 return {"error": "Usuario no encontrado en la base de datos"}, 404
 
-             # Verificar que el usuario autenticado sea un vendedor
+            # Verificar que el usuario autenticado sea un vendedor
             if user_data['tipo_usuario'] != 'vendedor':
                 return {"error": "El usuario no tiene el rol de vendedor"}, 403
 
             vendedor_id = user_id  # El vendedor es el usuario autenticado
 
+            # Validar que el vendedor_id esté asociado al bien_raiz_id
+            bien_raiz_ref = db.collection('bienes_raices').document(args['bien_raiz_id'])
+            bien_raiz_data = bien_raiz_ref.get().to_dict()
+
+            if not bien_raiz_data:
+                return {"error": "El bien raíz no existe"}, 404
+
+            if bien_raiz_data.get('vendedor_id') != vendedor_id:
+                return {"error": "El vendedor no tiene permisos sobre este bien raíz"}, 403
+
+            # Buscar al comprador por nombre
             nombre_comprador = args['nombre_comprador']
             comprador_ref = db.collection('user').where('nombre_completo', '==', nombre_comprador).where('tipo_usuario', '==', 'comprador').limit(1).get()
             
@@ -348,7 +359,26 @@ class GenerarVenta(Resource):
                 'estado': args['estado'],
             })
 
-            return {"message": "Venta registrada exitosamente", "venta_id": venta_ref.id}, 201
+            return {"message": "Venta registrada exitosamente", "venta_id": venta_ref[1].id}, 201
+
+        except Exception as e:
+            return {"error": str(e)}, 500
+    
+    @api.doc(description="Obtener las ventas registradas")
+    def get(self):
+        try:
+            # Recuperar las ventas desde Firestore
+            ventas_ref = db.collection('ventas').stream()
+
+            # Crear una lista para almacenar las ventas
+            ventas = []
+            for venta in ventas_ref:
+                venta_data = venta.to_dict()
+                venta_data['venta_id'] = venta.id  # Agregar el ID de la venta al resultado
+                ventas.append(venta_data)
+
+            # Retornar las ventas en formato JSON
+            return {"ventas": ventas}, 200
 
         except Exception as e:
             return {"error": str(e)}, 500
