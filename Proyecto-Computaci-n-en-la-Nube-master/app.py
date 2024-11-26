@@ -83,13 +83,26 @@ class Login(Resource):
                 user_info = user_data.to_dict()
                 nombre_completo = user_info.get('nombre_completo')
                 tipo_usuario = user_info.get('tipo_usuario')
-                password = user_info.get('password')
-                return{"message": "Inicio de sesion exitoso", 
-                       "id": user.uid,
-                       "email": email,
-                       "nombre_completo":nombre_completo ,
-                       "tipo_usuario":tipo_usuario, 
-                       "password":password}, 201
+
+                # Crear la respuesta
+                response = jsonify({
+                    "message": "Inicio de sesión exitoso",
+                    "id": user.uid,
+                    "email": email,
+                    "nombre_completo": nombre_completo,
+                    "tipo_usuario": tipo_usuario,
+                })
+
+                # Configurar la cookie
+                response.set_cookie(
+                    'user_id',
+                    session['user_id'],
+                    secure=False,  # Cambia a True en producción
+                    httponly=True,
+                    samesite='None'
+                )
+
+                return response, 201
             else:
                 return {"error": "El usuario no tiene datos adicionales"}, 404
         except Exception as e:
