@@ -302,37 +302,42 @@ class GenerarVenta(Resource):
     venta_parser.add_argument('precio_final', type=float, required=True, help='Precio final de la venta')
     venta_parser.add_argument('forma_pago', type=str, required=True, help='Método de pago (efectivo, transferencia bancaria, etc.)')
     venta_parser.add_argument('estado', type=str, required=True, help='Estado de la venta (pendiente, completada, cancelada)')
-
-
+    
     @api.expect(venta_parser)
     @api.doc(description="Generar una venta")
     def post(self):
-        
-        if 'user_id' not in session or 'tipo_usuario' not in session:
-            return {"error": "Usuario no autenticado"}, 401
-        
-
-        # Solo los compradores pueden generar ventas
-        if session['tipo_usuario'] != 'comprador':
-            return {"error": "Solo los compradores pueden generar ventas"}, 403
-
-        
         args = self.venta_parser.parse_args()
 
+        # Obtener el user_id desde la sesión (esto debe ser parte de tu sistema de autenticación)
+        user_id = session.get('user_id')
+        if not user_id:
+            return {"error": "No se encontró un usuario autenticado"}, 401
+        
         try:
-            # Identificar al comprador autenticado
-            comprador_id = session['user_id']
+            # Obtener los datos del usuario desde Firestore para determinar su rol
+            user_ref = db.collection('user').document(user_id)
+            user_data = user_ref.get().to_dict()
+
+            if not user_data:
+                return {"error": "Usuario no encontrado en la base de datos"}, 404
+
+            # Verificar que el usuario autenticado sea un comprador
+            if user_data['tipo_usuario'] != 'comprador':
+                return {"error": "El usuario no tiene el rol de comprador"}, 403
+
+            comprador_id = user_id  # El comprador es el usuario autenticado
 
             # Validar que el bien raíz existe
             bien_raiz_ref = db.collection('bienes_raices').document(args['bien_raiz_id'])
             bien_raiz_data = bien_raiz_ref.get().to_dict()
+
             if not bien_raiz_data:
                 return {"error": "El bien raíz no existe"}, 404
 
-            # Obtener el vendedor_id del bien raíz
-            vendedor_id = bien_raiz_data.get('vendedor_id')
+            vendedor_id = bien_raiz_data.get('vendedor_id')  # Obtener el vendedor asociado al bien raíz
+
             if not vendedor_id:
-                return {"error": "El bien raíz no tiene un vendedor asociado"}, 404
+                return {"error": "No se ha asignado un vendedor a este bien raíz"}, 404
 
             # Obtener la fecha de la venta (si no se proporciona, se usa la fecha actual)
             fecha_venta = args.get('fecha_venta', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
