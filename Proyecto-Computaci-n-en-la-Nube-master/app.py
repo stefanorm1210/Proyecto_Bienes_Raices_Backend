@@ -60,14 +60,7 @@ boleta_model = api.model('Boleta', {
 })
 subir_boleta_model = api.parser()
 subir_boleta_model.add_argument('boleta', location='files', type='file', required=True, help='Archivo de la boleta a subir')
-# Recursos de la API
-@app.before_request
-def make_session_permanet():
-    session.permanent = True
-    app.config.update(
-    SESSION_COOKIE_SAMESITE='None',  # Asegurarse de que SameSite esté en None
-    SESSION_COOKIE_SECURE=False,  # Durante desarrollo, se puede dejar en False si no usas HTTPS
-)
+
 @api.route('/login')
 class Login(Resource):
     @api.doc(description="Iniciar sesión con email y contraseña")
@@ -305,42 +298,40 @@ class GenerarVenta(Resource):
     venta_parser.add_argument('precio_final', type=float, required=True, help='Precio final de la venta')
     venta_parser.add_argument('forma_pago', type=str, required=True, help='Método de pago (efectivo, transferencia bancaria, etc.)')
     venta_parser.add_argument('estado', type=str, required=True, help='Estado de la venta (pendiente, completada, cancelada)')
-    
+    venta_parser.add_argument('comprador_nombre', type=str, help='Nombre del comprador')
+    venta_parser.add_argument('vendedor_nombre', type=str, help='Nombre del vendedor')
+
     @api.expect(venta_parser)
     @api.doc(description="Generar una venta")
     def post(self):
         args = self.venta_parser.parse_args()
 
-        # Obtener el user_id desde la sesión (esto debe ser parte de tu sistema de autenticación)
-        user_id = session.get('user_id')
-        if not user_id:
-            return {"error": "No se encontró un usuario autenticado"}, 401
-        
         try:
-            # Obtener los datos del usuario desde Firestore para determinar su rol
-            user_ref = db.collection('user').document(user_id)
-            user_data = user_ref.get().to_dict()
+            # Buscar el ID del comprador por nombre
+            comprador_nombre = args.get('comprador_nombre')
+            comprador_id = None
+            if comprador_nombre:
+                compradores_ref = db.collection('user').where('nombre_completo', '==', comprador_nombre).where('tipo_usuario', '==', 'comprador').stream()
+                comprador_docs = list(compradores_ref)
+                if not comprador_docs:
+                    return {"error": f"No se encontró un comprador con el nombre {comprador_nombre}"}, 404
+                comprador_id = comprador_docs[0].id
 
-            if not user_data:
-                return {"error": "Usuario no encontrado en la base de datos"}, 404
-
-            # Verificar que el usuario autenticado sea un comprador
-            if user_data['tipo_usuario'] != 'comprador':
-                return {"error": "El usuario no tiene el rol de comprador"}, 403
-
-            comprador_id = user_id  # El comprador es el usuario autenticado
+            # Buscar el ID del vendedor por nombre
+            vendedor_nombre = args.get('vendedor_nombre')
+            vendedor_id = None
+            if vendedor_nombre:
+                vendedores_ref = db.collection('user').where('nombre_completo', '==', vendedor_nombre).where('tipo_usuario', '==', 'vendedor').stream()
+                vendedor_docs = list(vendedores_ref)
+                if not vendedor_docs:
+                    return {"error": f"No se encontró un vendedor con el nombre {vendedor_nombre}"}, 404
+                vendedor_id = vendedor_docs[0].id
 
             # Validar que el bien raíz existe
             bien_raiz_ref = db.collection('bienes_raices').document(args['bien_raiz_id'])
             bien_raiz_data = bien_raiz_ref.get().to_dict()
-
             if not bien_raiz_data:
                 return {"error": "El bien raíz no existe"}, 404
-
-            vendedor_id = bien_raiz_data.get('vendedor_id')  # Obtener el vendedor asociado al bien raíz
-
-            if not vendedor_id:
-                return {"error": "No se ha asignado un vendedor a este bien raíz"}, 404
 
             # Obtener la fecha de la venta (si no se proporciona, se usa la fecha actual)
             fecha_venta = args.get('fecha_venta', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
