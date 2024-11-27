@@ -11,7 +11,11 @@ import logging
 #Inicializar la app de Flask
 app = Flask(__name__)
 app.secret_key = '121003'
-
+app.config.update(
+    SESSION_COOKIE_SECURE=True,  # Solo cookies seguras bajo HTTPS
+    SESSION_COOKIE_HTTPONLY=True,  # Las cookies no son accesibles desde JavaScript
+    SESSION_COOKIE_SAMESITE='None'  # Necesario para compartir cookies entre dominios diferentes
+)
 # Configurar CORS
 CORS(app, resources={r"/*": {"origins": "http://localhost:5173", "supports_credentials": True}})
 
@@ -251,7 +255,7 @@ class BienRaizDetail(Resource):
         except Exception as e:
             return {"error": str(e)}, 500
         
-@api.route('/subir_boleta')
+"""@api.route('/subir_boleta')
 class Boletas(Resource):
     @api.expect(subir_boleta_model)
     @api.doc(description="Subir una boleta en formato PDF")
@@ -289,7 +293,7 @@ class DescargarBoleta(Resource):
         url = blob.generate_signed_url(expiration=3600)
 
         return {"url": url}, 200
-
+"""
 @api.route('/generar_venta')
 class GenerarVenta(Resource):
     venta_parser = api.parser()
