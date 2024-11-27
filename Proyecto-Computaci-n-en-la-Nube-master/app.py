@@ -302,40 +302,37 @@ class GenerarVenta(Resource):
     venta_parser.add_argument('precio_final', type=float, required=True, help='Precio final de la venta')
     venta_parser.add_argument('forma_pago', type=str, required=True, help='Método de pago (efectivo, transferencia bancaria, etc.)')
     venta_parser.add_argument('estado', type=str, required=True, help='Estado de la venta (pendiente, completada, cancelada)')
-    venta_parser.add_argument('comprador_nombre', type=str, help='Nombre del comprador')
-    venta_parser.add_argument('vendedor_nombre', type=str, help='Nombre del vendedor')
+
 
     @api.expect(venta_parser)
     @api.doc(description="Generar una venta")
     def post(self):
+        
+        if 'user_id' not in session or 'tipo_usuario' not in session:
+            return {"error": "Usuario no autenticado"}, 401
+        
+
+        # Solo los compradores pueden generar ventas
+        if session['tipo_usuario'] != 'comprador':
+            return {"error": "Solo los compradores pueden generar ventas"}, 403
+
+        
         args = self.venta_parser.parse_args()
 
         try:
-            # Buscar el ID del comprador por nombre
-            comprador_nombre = args.get('comprador_nombre')
-            comprador_id = None
-            if comprador_nombre:
-                compradores_ref = db.collection('user').where('nombre_completo', '==', comprador_nombre).where('tipo_usuario', '==', 'comprador').stream()
-                comprador_docs = list(compradores_ref)
-                if not comprador_docs:
-                    return {"error": f"No se encontró un comprador con el nombre {comprador_nombre}"}, 404
-                comprador_id = comprador_docs[0].id
-
-            # Buscar el ID del vendedor por nombre
-            vendedor_nombre = args.get('vendedor_nombre')
-            vendedor_id = None
-            if vendedor_nombre:
-                vendedores_ref = db.collection('user').where('nombre_completo', '==', vendedor_nombre).where('tipo_usuario', '==', 'vendedor').stream()
-                vendedor_docs = list(vendedores_ref)
-                if not vendedor_docs:
-                    return {"error": f"No se encontró un vendedor con el nombre {vendedor_nombre}"}, 404
-                vendedor_id = vendedor_docs[0].id
+            # Identificar al comprador autenticado
+            comprador_id = session['user_id']
 
             # Validar que el bien raíz existe
             bien_raiz_ref = db.collection('bienes_raices').document(args['bien_raiz_id'])
             bien_raiz_data = bien_raiz_ref.get().to_dict()
             if not bien_raiz_data:
                 return {"error": "El bien raíz no existe"}, 404
+
+            # Obtener el vendedor_id del bien raíz
+            vendedor_id = bien_raiz_data.get('vendedor_id')
+            if not vendedor_id:
+                return {"error": "El bien raíz no tiene un vendedor asociado"}, 404
 
             # Obtener la fecha de la venta (si no se proporciona, se usa la fecha actual)
             fecha_venta = args.get('fecha_venta', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
@@ -355,7 +352,7 @@ class GenerarVenta(Resource):
 
         except Exception as e:
             return {"error": str(e)}, 500
-    
+           
     @api.doc(description="Obtener las ventas registradas")
     def get(self):
         try:
