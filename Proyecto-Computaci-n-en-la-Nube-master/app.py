@@ -449,6 +449,14 @@ class Ventas(Resource):
 
         return ventas, 200
 
+@api.route('/cerrar_sesion')
+class CerrarSesion(Resource):
+    @api.doc(description="Cerrar la sesión del usuario")
+    def post(self):
+        # Eliminar el ID del usuario de la sesión
+        session.pop('user_id', None)
 
+        return {"message": "Sesión cerrada correctamente"}, 200
+        
 if __name__ == '__main__':
     app.run(debug=True)
