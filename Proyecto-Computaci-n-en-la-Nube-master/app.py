@@ -215,7 +215,7 @@ class BienRaizDetail(Resource):
     @api.doc(description="Actualizar el ID del vendedor de un bien raíz por ID")
     def put(self, id):
         # Parse the incoming request as JSON
-        data = request.get_json()  # Using `get_json()` to ensure the request is parsed as JSON
+        data = request.get_json()  # Using get_json() to ensure the request is parsed as JSON
 
         # Check if the vendedor_id is provided in the JSON body
         nuevo_vendedor_id = data.get('vendedor_id')
@@ -376,7 +376,7 @@ class BienRaizDetail(Resource):
     @api.doc(description="Obtener los detalles de un bien raíz por ID")
     def get(self, id):
         try:
-            # Buscar el documento en la colección `bienes_raices` por el ID
+            # Buscar el documento en la colección bienes_raices por el ID
             doc_ref = db.collection('bienes_raices').document(id)
             doc = doc_ref.get()
 
@@ -389,6 +389,66 @@ class BienRaizDetail(Resource):
                 return {"error": f"No se encontró ningún bien raíz con ID: {id}"}, 404
         except Exception as e:
             return {"error": f"Error al obtener el bien raíz: {str(e)}"}, 500
+
+@api.route('/compras')
+class Compras(Resource):
+    @api.doc(description="Obtener todas las compras realizadas por un comprador")
+    def get(self):
+        # Obtener el ID del comprador desde la sesión
+        comprador_id = session.get('user_id')
+        if not comprador_id:
+            return {"error": "No se encontró un usuario autenticado"}, 401
+
+        # Buscar todas las ventas donde el comprador_id coincida
+        compras = []
+        docs = db.collection('ventas').where('comprador_id', '==', comprador_id).stream()
+
+        for doc in docs:
+            compra = doc.to_dict()
+            compra['id'] = doc.id  # Obtener el ID de la venta
+            compras.append({
+                'id': compra['id'],
+                'bien_raiz_id': compra['bien_raiz_id'],
+                'vendedor_id': compra['vendedor_id'],
+                'fecha_venta': compra.get('fecha_venta'),
+                'precio_final': compra['precio_final'],
+                'estado': compra['estado'],
+                'forma_pago': compra['forma_pago'],
+                'notas': compra.get('notas')
+            })
+
+        return compras, 200
+
+
+@api.route('/ventas')
+class Ventas(Resource):
+    @api.doc(description="Obtener todas las ventas realizadas por un vendedor")
+    def get(self):
+        # Obtener el ID del vendedor desde la sesión
+        vendedor_id = session.get('user_id')
+        if not vendedor_id:
+            return {"error": "No se encontró un usuario autenticado"}, 401
+
+        # Buscar todas las ventas donde el vendedor_id coincida
+        ventas = []
+        docs = db.collection('ventas').where('vendedor_id', '==', vendedor_id).stream()
+
+        for doc in docs:
+            venta = doc.to_dict()
+            venta['id'] = doc.id  # Obtener el ID de la venta
+            ventas.append({
+                'id': venta['id'],
+                'bien_raiz_id': venta['bien_raiz_id'],
+                'comprador_id': venta['comprador_id'],
+                'fecha_venta': venta.get('fecha_venta'),
+                'precio_final': venta['precio_final'],
+                'estado': venta['estado'],
+                'forma_pago': venta['forma_pago'],
+                'notas': venta.get('notas')
+            })
+
+        return ventas, 200
+
 
 if __name__ == '__main__':
     app.run(debug=True)
