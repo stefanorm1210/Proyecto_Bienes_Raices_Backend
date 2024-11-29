@@ -59,12 +59,6 @@ venta_model = api.model('Venta', {
     'notas': fields.String(required=False, description='Notas adicionales sobre la venta')
 })
 
-boleta_model = api.model('Boleta', {
-    'boleta': fields.String(required = True, description='Archivo de la boleta')
-})
-subir_boleta_model = api.parser()
-subir_boleta_model.add_argument('boleta', location='files', type='file', required=True, help='Archivo de la boleta a subir')
-
 @api.route('/login')
 class Login(Resource):
     @api.doc(description="Iniciar sesión con email y contraseña")
